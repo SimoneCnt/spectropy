@@ -78,7 +78,7 @@ def toFloat(val, default=0.0, amin=None, amax=None):
 class Spectropy(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        tk.Tk.wm_title(self, "Spectropy")
+        tk.Tk.wm_title(self, "Spectropy %s" % (spp.version))
         container = tk.Frame(self)
         container.pack(side=tk.LEFT, fill="both", expand=True)
         container.grid_rowconfigure(0, weight=0)
