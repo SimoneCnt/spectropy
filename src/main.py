@@ -107,9 +107,11 @@ class Spectropy(tk.Tk):
     def save(self):
         fname = tk.filedialog.asksaveasfilename(defaultextension='.yaml', filetypes=[("YAML", '*.yaml'), ("JSON", '*.json')])
         if not fname: return
+        basepath = os.path.dirname(fname)
         save = dict()
         for idd, sp in self.spectra.items():
             save[idd] = sp.toJson()
+            save[idd]['fname'] = os.path.relpath(save[idd]['fname'], basepath)
         with open(fname, 'w') as fp:
             if fname.endswith('.json'):
                 json.dump(save, fp, indent=4)
@@ -123,7 +125,9 @@ class Spectropy(tk.Tk):
                 save = json.load(fp)
             else:
                 save = yaml.safe_load(fp)
+        basepath = os.path.dirname(fname)
         for idd, sp in save.items():
+            sp['fname'] = os.path.join(basepath, sp['fname'])
             self.AddSpectrum(**sp)
 
 class LeftPanel(tk.Frame):
@@ -158,7 +162,7 @@ class Spectrum(tk.LabelFrame):
         tk.Label(self, text='Baseline L').grid(row=3, column=0)
         tk.Label(self, text='Baseline P').grid(row=3, column=2)
         tk.Label(self, text='Baseline').grid(row=4, column=0)
-        self.label_var = tk.StringVar(value=label if label is not None else fname)
+        self.label_var = tk.StringVar(value=label if label is not None else os.path.basename(fname))
         self.color_var = tk.StringVar(value=color)
         self.xmin_var = tk.StringVar(value=xmin)
         self.xmax_var = tk.StringVar(value=xmax)
@@ -238,7 +242,7 @@ class GraphFrame(tk.Frame):
         self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
     def update(self, event=None):
         self.ax.clear()
-        for sp in self.controller.spectra.values():
+        for sp in sorted(self.controller.spectra.values(), reverse=True, key=lambda tmp:toFloat(tmp.vshift_var.get(), 0)):
             sp.plot(self.ax)
         if len(self.controller.spectra.values())>0:
             self.ax.legend()
