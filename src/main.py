@@ -76,6 +76,7 @@ def toFloat(val, default=0.0, amin=None, amax=None):
     return flt
 
 class Spectropy(tk.Tk):
+
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         tk.Tk.wm_title(self, "Spectropy %s" % (spp.version))
@@ -95,15 +96,17 @@ class Spectropy(tk.Tk):
         self.scrollframe.grid(row=1, column=0, sticky="nsew")
         self.left.pack()
         tk.Button(top_bar, text='Open new spectrum', command=self.left.LoadNewGraph).grid(row=0, column=0)
-        tk.Button(top_bar, text='Update graph', command=self.graph.update).grid(row=0, column=1)
+        tk.Button(top_bar, text='Update graph', command=self.update).grid(row=0, column=1)
         tk.Button(top_bar, text='Save config', command=self.save).grid(row=0, column=2)
         tk.Button(top_bar, text='Load config', command=self.load).grid(row=0, column=3)
+        self.order_status = None
+
     def AddSpectrum(self, fname, label=None, color='black', xmin=200.0, xmax=3000.0, vshift=0.0, pfilter=5, alsl=3, alsp=3, alsm=0):
         sp = Spectrum(self.left, self, fname, label, color, xmin, xmax, vshift, pfilter, alsl, alsp, alsm)
         if sp.isvalid:
             self.spectra[sp.id] = sp
-            self.graph.update()
-            sp.grid(row=len(self.spectra), column=0, columnspan=2)
+            self.update()
+
     def save(self):
         fname = tk.filedialog.asksaveasfilename(defaultextension='.yaml', filetypes=[("YAML", '*.yaml'), ("JSON", '*.json')])
         if not fname: return
@@ -117,6 +120,7 @@ class Spectropy(tk.Tk):
                 json.dump(save, fp, indent=4)
             else:
                 yaml.dump(save, fp)
+
     def load(self):
         fname = tk.filedialog.askopenfilename(defaultextension='.yaml', filetypes=[("YAML", '*.yaml'), ("JSON", '*.json')])
         if not fname: return
@@ -130,6 +134,14 @@ class Spectropy(tk.Tk):
             sp['fname'] = os.path.join(basepath, sp['fname'])
             self.AddSpectrum(**sp)
 
+    def update(self, event=None):
+        order_status = '-'.join([ '%s_%s' % (k, v.vshift_var.get()) for k,v in self.spectra.items() if v.isvalid ])
+        if order_status!=self.order_status:
+            self.left.update()
+            self.order_status = order_status
+        self.graph.update()
+
+
 class LeftPanel(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -138,11 +150,19 @@ class LeftPanel(tk.Frame):
         fname = tk.filedialog.askopenfilename(title='Open a file')
         if not fname: return
         self.controller.AddSpectrum(fname)
+    def update(self):
+        for sp in self.grid_slaves():
+            sp.grid_forget()
+        self.controller.spectra = { key:sp for key, sp in self.controller.spectra.items() if sp.isvalid }
+        for i, sp in enumerate(sorted(self.controller.spectra.values(), reverse=True, key=lambda tmp:toFloat(tmp.vshift_var.get(), 0))):
+            sp.grid(row=i, column=0, columnspan=2)
 
 class Spectrum(tk.LabelFrame):
 
     def __init__(self, parent, controller, fname, label=None, color='black', xmin=200.0, xmax=3000.0, vshift=0.0, pfilter=5, alsl=3, alsp=3, alsm=0):
         tk.LabelFrame.__init__(self, parent, text='')
+        self.parent = parent
+        self.controller = controller
         tmp = "%s%f" % (fname, random.random())
         self.id = hashlib.md5(tmp.encode('utf-8')).hexdigest()
         self.fname = fname
@@ -185,25 +205,26 @@ class Spectrum(tk.LabelFrame):
             r = i//2
             c = (i%2)*2+1
             e.grid(row=r, column=c)
-            e.bind("<Tab>", controller.graph.update)
-            e.bind("<Return>", controller.graph.update)
-        tk.Radiobutton(self, text='Not compute', variable=self.alsm_var, value=0, command=controller.graph.update).grid(row=4, column=1)
-        tk.Radiobutton(self, text='Compute', variable=self.alsm_var, value=1, command=controller.graph.update).grid(row=4, column=2)
-        tk.Radiobutton(self, text='Remove', variable=self.alsm_var, value=2, command=controller.graph.update).grid(row=4, column=3)
-        tk.Label(self, text='Rescale (m,q)').grid(row=5, column=0)
+            e.bind("<Tab>", controller.update)
+            e.bind("<Return>", controller.update)
+        tk.Radiobutton(self, text='Not compute', variable=self.alsm_var, value=0, command=controller.update).grid(row=4, column=1)
+        tk.Radiobutton(self, text='Compute', variable=self.alsm_var, value=1, command=controller.update).grid(row=4, column=2)
+        tk.Radiobutton(self, text='Remove', variable=self.alsm_var, value=2, command=controller.update).grid(row=4, column=3)
+        tk.Label(self, text='Calibrate m,q').grid(row=5, column=0)
         self.rescale_slope_var = tk.StringVar(value=1.0093)
         rescale_slope_entry = tk.Entry(self, textvariable=self.rescale_slope_var, width=5)
         rescale_slope_entry.grid(row=5, column=1)
-        rescale_slope_entry.bind("<Tab>", controller.graph.update)
-        rescale_slope_entry.bind("<Return>", controller.graph.update)
+        rescale_slope_entry.bind("<Tab>", controller.update)
+        rescale_slope_entry.bind("<Return>", controller.update)
         self.rescale_intercept_var = tk.StringVar(value=0.1226)
         rescale_intercept_entry = tk.Entry(self, textvariable=self.rescale_intercept_var, width=5)
         rescale_intercept_entry.grid(row=5, column=2)
-        rescale_intercept_entry.bind("<Tab>", controller.graph.update)
-        rescale_intercept_entry.bind("<Return>", controller.graph.update)
+        rescale_intercept_entry.bind("<Tab>", controller.update)
+        rescale_intercept_entry.bind("<Return>", controller.update)
         self.rescale_apply_var = tk.IntVar(value=0)
-        tk.Checkbutton(self, text='Apply', variable=self.rescale_apply_var, command=controller.graph.update).grid(row=5, column=3)
+        tk.Checkbutton(self, text='Apply', variable=self.rescale_apply_var, command=controller.update).grid(row=5, column=3)
         tk.Button(self, text='Save', command=self.save_raman).grid(row=6, column=2)
+        tk.Button(self, text='Remove', command=self.remove).grid(row=6, column=3)
         self.isvalid = True
 
     def plot(self, ax):
@@ -269,6 +290,10 @@ class Spectrum(tk.LabelFrame):
         fname = tk.filedialog.asksaveasfilename(defaultextension='.rruff', filetypes=[("RRUFF", '*.rruff')])
         if not fname: return
         spp.write_raman(fname, nx, ny, name=label, fmt='rruff')
+
+    def remove(self):
+        self.isvalid = False
+        self.controller.update()
 
     def toJson(self):
         j = dict(
