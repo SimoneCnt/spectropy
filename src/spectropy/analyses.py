@@ -84,4 +84,21 @@ def plot(ax, x, y, peaks, label=None, xmin=200, xmax=3000, color=None, vshift=0.
         ax.plot(px, py, 'o', color=color)
 
 
+def clean_raman(x, y, xmin=200, xmax=3000, spl=None):
+    nx = [ xx for xx, yy in zip(x, y) if xx>xmin and xx<xmax ]
+    ny = [ yy for xx, yy in zip(x, y) if xx>xmin and xx<xmax ]
+    x = np.array(nx)
+    y = np.array(ny)
+    ymin = np.amin(y)
+    ymax = np.amax(y) - ymin
+    y -= ymin
+    y /= ymax
+    if spl and spl[2]=='remove':
+        z = baseline_als(y, spl[0], spl[1], niter=10)
+        y -= z
+        ymin = np.amin(y)
+        ymax = np.amax(y) - ymin
+        y -= ymin
+        y /= ymax
+    return x, y
 
