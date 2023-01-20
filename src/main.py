@@ -19,6 +19,11 @@ except ImportError as e:
     missing += " numpy"
 
 try:
+    import scipy
+except ImportError as e:
+    missing += " scipy"
+
+try:
     import matplotlib
     matplotlib.use("TkAgg")
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -80,26 +85,32 @@ class Spectropy(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         tk.Tk.wm_title(self, "Spectropy %s" % (spp.version))
+
+        self.spectra = dict()
+        self.order_status = None
+        self.rruff_lib = None
+
         container = tk.Frame(self)
         container.pack(side=tk.LEFT, fill="both", expand=True)
         container.grid_rowconfigure(0, weight=0)
         container.grid_rowconfigure(1, weight=1)
         container.grid_columnconfigure(0, weight=0)
         container.grid_columnconfigure(1, weight=1)
+
         top_bar = tk.Frame(container)
         top_bar.grid(row=0, column=0, columnspan=2)
-        self.spectra = dict()
+
         self.graph = GraphFrame(container, self)
         self.scrollframe = ScrollableFrame(container)
         self.left = LeftPanel(self.scrollframe.interior, self)
         self.graph.grid(row=1, column=1, sticky="nsew")
         self.scrollframe.grid(row=1, column=0, sticky="nsew")
         self.left.pack()
+
         tk.Button(top_bar, text='Open new spectrum', command=self.left.LoadNewGraph).grid(row=0, column=0)
         tk.Button(top_bar, text='Update graph', command=self.update).grid(row=0, column=1)
         tk.Button(top_bar, text='Save config', command=self.save).grid(row=0, column=2)
         tk.Button(top_bar, text='Load config', command=self.load).grid(row=0, column=3)
-        self.order_status = None
 
     def AddSpectrum(self, fname, label=None, color='black', xmin=200.0, xmax=3000.0, vshift=0.0, pfilter=5, alsl=3, alsp=3, alsm=0):
         sp = Spectrum(self.left, self, fname, label, color, xmin, xmax, vshift, pfilter, alsl, alsp, alsm)
@@ -157,6 +168,34 @@ class LeftPanel(tk.Frame):
         for i, sp in enumerate(sorted(self.controller.spectra.values(), reverse=True, key=lambda tmp:toFloat(tmp.vshift_var.get(), 0))):
             sp.grid(row=i, column=0, columnspan=2)
 
+
+class MatchWindow(tk.Toplevel):
+
+    def __init__(self, matches=list(), master=None, controller=None):
+        super().__init__(master=master)
+        self.title('Matches')
+        self.controller = controller
+        self.yScroll = tk.Scrollbar(self, orient=tk.VERTICAL)
+        self.yScroll.grid(row=0, column=1, sticky=tk.N+tk.S)
+        self.xScroll = tk.Scrollbar(self, orient=tk.HORIZONTAL)
+        self.xScroll.grid(row=1, column=0, sticky=tk.E+tk.W)
+        self.listbox = tk.Listbox(self, selectmode=tk.SINGLE, xscrollcommand=self.xScroll.set, yscrollcommand=self.yScroll.set)
+        self.listbox.grid(row=0, column=0, sticky=tk.N+tk.S+tk.E+tk.W)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.xScroll['command'] = self.listbox.xview
+        self.yScroll['command'] = self.listbox.yview
+        self.listbox.bind('<<ListboxSelect>>', self.plot_rruff)
+        for m in matches:
+            self.listbox.insert(tk.END, m)
+
+    def plot_rruff(self, event=None):
+        rruff_ids = self.listbox.curselection()
+        if len(rruff_ids)==1:
+            lab = self.listbox.get(rruff_ids[0])
+            self.controller.AddSpectrum('rruff:'+lab)
+
+
 class Spectrum(tk.LabelFrame):
 
     def __init__(self, parent, controller, fname, label=None, color='black', xmin=200.0, xmax=3000.0, vshift=0.0, pfilter=5, alsl=3, alsp=3, alsm=0):
@@ -167,10 +206,14 @@ class Spectrum(tk.LabelFrame):
         self.id = hashlib.md5(tmp.encode('utf-8')).hexdigest()
         self.fname = fname
         self.isvalid = False
-        if not os.path.isfile(fname):
+        if fname.startswith('rruff:'):
+            self.x, self.y = self.controller.rruff_lib[fname[6:]]
+            self.peaks = None
+        elif not os.path.isfile(fname):
             tk.messagebox.showerror('File not found!', 'Sorry, but I could not find this file :(')
             return
-        self.x, self.y, self.peaks = spp.read_raman(fname)
+        else:
+            self.x, self.y, self.peaks = spp.read_raman(fname)
         if not np.all(self.x):
             tk.messagebox.showerror('Error parsing file!', 'Sorry, but I could not understand this file :(')
             return
@@ -223,6 +266,7 @@ class Spectrum(tk.LabelFrame):
         rescale_intercept_entry.bind("<Return>", controller.update)
         self.rescale_apply_var = tk.IntVar(value=0)
         tk.Checkbutton(self, text='Apply', variable=self.rescale_apply_var, command=controller.update).grid(row=5, column=3)
+        tk.Button(self, text='Match', command=self.match_rruff).grid(row=6, column=1)
         tk.Button(self, text='Save', command=self.save_raman).grid(row=6, column=2)
         tk.Button(self, text='Remove', command=self.remove).grid(row=6, column=3)
         self.isvalid = True
@@ -260,8 +304,7 @@ class Spectrum(tk.LabelFrame):
             xgraph = self.x
         spp.plot(ax, xgraph, self.y, self.peaks, label=label, xmin=xmin, xmax=xmax, color=color, vshift=vshift, pfilter=pfilter, spl=als)
 
-    def save_raman(self):
-        label = self.label_var.get()
+    def get_clean_raman(self):
         xmin = toFloat(self.xmin_var.get(), 200.0)
         self.xmin_var.set(xmin)
         xmax = toFloat(self.xmax_var.get(), 3000.0)
@@ -287,13 +330,30 @@ class Spectrum(tk.LabelFrame):
         else:
             xgraph = self.x
         nx, ny = spp.clean_raman(xgraph, self.y, xmin, xmax, als)
+        return nx, ny
+
+    def save_raman(self):
         fname = tk.filedialog.asksaveasfilename(defaultextension='.rruff', filetypes=[("RRUFF", '*.rruff')])
         if not fname: return
+        label = self.label_var.get()
+        nx, ny = self.get_clean_raman()
         spp.write_raman(fname, nx, ny, name=label, fmt='rruff')
 
     def remove(self):
         self.isvalid = False
         self.controller.update()
+
+    def match_rruff(self):
+        if not self.controller.rruff_lib:
+            print('Loading rruff database...')
+            try:
+                self.controller.rruff_lib = spp.load_reference_database()
+            except:
+                print('Loading failed!')
+                return
+        nx, ny = self.get_clean_raman()
+        matches = spp.score_all(nx, ny, self.controller.rruff_lib)
+        mw = MatchWindow(controller=self.controller, matches=matches)
 
     def toJson(self):
         j = dict(
@@ -309,6 +369,7 @@ class Spectrum(tk.LabelFrame):
             alsm = self.alsm_var.get()
            )
         return j
+
 
 class GraphFrame(tk.Frame):
     def __init__(self, parent, controller):
@@ -329,6 +390,7 @@ class GraphFrame(tk.Frame):
         if len(self.controller.spectra.values())>0:
             self.ax.legend()
         self.canvas.draw()
+
 
 app = Spectropy()
 app.mainloop()
