@@ -9,7 +9,9 @@ import os, platform
 import numpy as np
 import scipy
 import pickle
-import spectropy as spp
+import urllib.request
+import shutil
+from .read_raman import read_raman
 
 def get_user_data_dir():
     if platform.platform() in ['Linux', 'Darwin']:
@@ -21,7 +23,34 @@ def get_user_data_dir():
     os.makedirs(d, exist_ok=True)
     return d
 
+def get_reference_library_dir():
+    d = os.path.join(get_user_data_dir(), 'reference_library')
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def download_rruff(overwrite=False):
+    udir = get_reference_library_dir()
+    baseurl = 'https://rruff.info/zipped_data_files/raman/'
+    fnames = ['excellent_unoriented', 'fair_unoriented', 'poor_unoriented', 'unrated_unoriented']
+    print('Downloading RRUFF reference library into %s' % (udir))
+    for fname in fnames:
+        local_fname = os.path.join(udir, fname+'.zip')
+        extract_dir = os.path.join(udir, fname)
+        if os.path.isfile(local_fname):
+            if overwrite:
+                print('RRUFF archive %s already exists. Removing it.' % (fname))
+                shutil.rmtree(local_fname)
+                shitil.rmtree(ectract_dir)
+            else:
+                print('RRUFF archive %s already exists. Skipping it.' % (fname))
+                continue
+        print('Downloading %s into %s' % (fname, udir))
+        urllib.request.urlretrieve(baseurl+fname+'.zip', filename=local_fname)
+        print('Unpacking %s' % (local_fname))
+        shutil.unpack_archive(local_fname, extract_dir)
+
 def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False):
+    download_rruff(overwrite=False)
     reflib = os.path.join(get_user_data_dir(), 'reflib.pkl')
     if os.path.isfile(reflib):
         if overwrite:
@@ -33,7 +62,7 @@ def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False)
                 data = pickle.load(fp)
             return data
     print('Creating reference library file...')
-    refdirs_path = os.path.join(os.path.dirname(__file__), 'reference_library')
+    refdirs_path = get_reference_library_dir()
     refdirs = [ ['excellent_unoriented', 3],
                 ['fair_unoriented', 2],
                 ['poor_unoriented', 1], 
@@ -55,7 +84,7 @@ def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False)
         for f, rruffid, laser, quality, refdir in pdata:
             name = '%s__%g__%s' % (mineral, laser, rruffid)
             if name in data.keys(): continue
-            x, y, _ = spp.read_raman(os.path.join(refdirs_path, refdir, f))
+            x, y, _ = read_raman(os.path.join(refdirs_path, refdir, f))
             data[name] = np.array([x,y])
             loaded += 1
             if loaded%100==0:
