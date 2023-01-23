@@ -14,7 +14,6 @@ setup(
     author_email = 'simonecnt@gmail.com',
     license = 'GPLv3',
     packages = find_packages(),
-    package_data = {'spectropy': ['reference_library/*/*.gz']},
     install_requires = ['numpy', 'matplotlib', 'scipy', 'chardet', 'pyyaml'],
     entry_points={
         'console_scripts': [
