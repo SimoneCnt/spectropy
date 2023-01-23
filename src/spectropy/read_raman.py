@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import scipy.sparse
 import chardet
+import gzip
 
 from . import spc
 
@@ -14,12 +15,7 @@ def read_spc(fname):
     y = f.sub[0].y
     return x, y, None
 
-def read_txt(fname, encoding=None):
-    fp = open(fname, 'r')
-    line = fp.readline()
-    if not line.split()[0] == "scanname":
-        print("invalid file :(")
-        return 0, 0, None
+def read_txt(fp):
     spectrumn = 0
     spectrumx = list()
     spectrumy = list()
@@ -44,11 +40,8 @@ def read_txt(fname, encoding=None):
             peaksn -= 1
     return np.array(spectrumx), np.array(spectrumy), (np.array(peaksx), np.array(peaksy))
 
-def read_lrd11(fname, encoding=None):
+def read_lrd11(fp):
     fp = open(fname, 'r', encoding=encoding)
-    line = fp.readline()
-    if not line.startswith('#! Defender LRD 1.1'):
-        return 0, 0, None
     readpeaks = False
     readspectrum = False
     numdata = 0
@@ -92,25 +85,29 @@ def read_lrd11(fname, encoding=None):
     return spectrum[0], spectrum[1], (np.array(peaks), np.zeros(len(peaks)))
 
 
-def read_rruff(fname, encoding=None):
-    x, y = np.loadtxt(fname, delimiter=',', unpack=True)
+def read_rruff(fp, encoding=None):
+    x, y = np.loadtxt(fp, delimiter=',', unpack=True)
     return x, y, None
 
 def read_raman(fname):
     if fname.endswith('spc'):
         return read_spc(fname)
+    if fname.endswith('gz'):
+        with gzip.open(fname, mode='rb') as fp:
+            encoding = chardet.detect(fp.read(2**10))['encoding']
+        fp = gzip.open(fname, mode='rt', encoding=encoding)
     else:
         with open(fname, 'rb') as fp:
             encoding = chardet.detect(fp.read(2**10))['encoding']
-        with open(fname, 'r', encoding=encoding) as fp:
-            line = fp.readline()
-            if line.split()[0] == "scanname":
-                return read_txt(fname, encoding=encoding)
-            elif line.split('=')[0] == "##NAMES":
-                return read_rruff(fname, encoding=encoding)
-            elif line.startswith('#! Defender LRD 1.1'):
-                return read_lrd11(fname, encoding=encoding)
-            else:
-                return None, None, None
+        fp = open(fname, 'r', encoding=encoding)
+    line = fp.readline()
+    if line.split()[0] == "scanname":
+        return read_txt(fp)
+    elif line.split('=')[0] == "##NAMES":
+        return read_rruff(fp)
+    elif line.startswith('#! Defender LRD 1.1'):
+        return read_lrd11(fp)
+    else:
+        return None, None, None
 
 
