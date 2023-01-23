@@ -1,6 +1,6 @@
 #/bin/bash
 
-source src/spectropy/version.py
+source ../spectropy/version.py
 sed "s/VERSION/$version/g" spectropy.platypus.template > spectropy.platypus
 
 /usr/local/bin/platypus -P spectropy.platypus Spectropy.app
