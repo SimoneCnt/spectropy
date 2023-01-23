@@ -10,11 +10,6 @@
 	<false/>
 	<key>Author</key>
 	<string>Simone Conti</string>
-	<key>BundledFiles</key>
-	<array>
-		<string>src/main.py</string>
-		<string>src/spectropy</string>
-	</array>
 	<key>Creator</key>
 	<string>Simone Conti</string>
 	<key>DeclareService</key>

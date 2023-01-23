@@ -3,3 +3,4 @@ from .read_raman import read_raman
 from .write_raman import write_raman
 from .score import load_reference_database, score_all
 from .version import version
+from .gui import run_spectropy_gui

@@ -5,6 +5,7 @@ import math
 import random
 import hashlib
 import json
+import traceback
 
 missing = ""
 
@@ -350,6 +351,8 @@ class Spectrum(tk.LabelFrame):
                 self.controller.rruff_lib = spp.load_reference_database()
             except:
                 print('Loading failed!')
+                error_message = traceback.format_exc()
+                print(error_message)
                 return
         nx, ny = self.get_clean_raman()
         matches = spp.score_all(nx, ny, self.controller.rruff_lib)
@@ -391,7 +394,7 @@ class GraphFrame(tk.Frame):
             self.ax.legend()
         self.canvas.draw()
 
-
-app = Spectropy()
-app.mainloop()
+def run_spectropy_gui():
+    app = Spectropy()
+    app.mainloop()
 
