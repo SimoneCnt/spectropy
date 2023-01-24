@@ -6,51 +6,14 @@ import random
 import hashlib
 import json
 import traceback
-
-missing = ""
-
-try:
-    import yaml
-except ImportError as e:
-    missing += " pyyaml"
-
-try:
-    import numpy as np
-except ImportError as e:
-    missing += " numpy"
-
-try:
-    import scipy
-except ImportError as e:
-    missing += " scipy"
-
-try:
-    import matplotlib
-    matplotlib.use("TkAgg")
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-    from matplotlib.figure import Figure
-    matplotlib.rcParams['savefig.dpi']=600
-except ImportError as e:
-    missing += " matplotlib"
-
-try:
-    import tkinter as tk
-except ImportError as e:
-    print()
-    print("ERROR!")
-    print("It looks like you don't have tkinter available.")
-    print("Please, install it by running this command in the Terminal:")
-    print("brew install python-tk")
-    quit()
-
-if missing:
-    print()
-    print("ERROR!")
-    print("It looks like you don't have%s installed." % (missing))
-    print("Please, install them by running this command in the Terminal:")
-    print("pip3 install %s" % (missing))
-    quit()
-
+import yaml
+import numpy as np
+import tkinter as tk
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
+matplotlib.rcParams['savefig.dpi']=600
 
 import spectropy as spp
 
