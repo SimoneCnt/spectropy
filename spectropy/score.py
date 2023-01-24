@@ -6,6 +6,7 @@ https://github.com/dykuang/Raman-Spectral-Matching
 """
 
 import os, platform
+import time
 import numpy as np
 import scipy
 import pickle
@@ -32,6 +33,7 @@ def download_rruff(overwrite=False):
     udir = get_reference_library_dir()
     baseurl = 'https://rruff.info/zipped_data_files/raman/'
     fnames = ['excellent_unoriented', 'fair_unoriented', 'poor_unoriented', 'unrated_unoriented']
+    something_changed = False
     print('Downloading RRUFF reference library into %s' % (udir))
     for fname in fnames:
         local_fname = os.path.join(udir, fname+'.zip')
@@ -39,8 +41,9 @@ def download_rruff(overwrite=False):
         if os.path.isfile(local_fname):
             if overwrite:
                 print('RRUFF archive %s already exists. Removing it.' % (fname))
-                shutil.rmtree(local_fname)
-                shitil.rmtree(ectract_dir)
+                os.remove(local_fname)
+                shutil.rmtree(extract_dir)
+                something_changed = True
             else:
                 print('RRUFF archive %s already exists. Skipping it.' % (fname))
                 continue
@@ -48,9 +51,28 @@ def download_rruff(overwrite=False):
         urllib.request.urlretrieve(baseurl+fname+'.zip', filename=local_fname)
         print('Unpacking %s' % (local_fname))
         shutil.unpack_archive(local_fname, extract_dir)
+    if something_changed:
+        reflib = os.path.join(get_user_data_dir(), 'reflib.pkl')
+        if os.path.isfile(reflib):
+            os.remove(reflib)
 
-def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False):
-    download_rruff(overwrite=False)
+def get_rruff_date():
+    refdirs_path = get_reference_library_dir()
+    refdirs = ['excellent_unoriented', 'fair_unoriented', 'poor_unoriented', 'unrated_unoriented']
+    oldest = None
+    for refdir in refdirs:
+        f = os.path.join(refdirs_path, refdir+'.zip')
+        if os.path.isfile(f):
+            tt = os.path.getmtime(f)
+            if (not oldest) or (tt<oldest):
+                oldest = tt
+    if oldest:
+        return time.strftime("%Y-%m-%d", time.gmtime(oldest))
+    else:
+        return "None downloaded yet!"
+
+
+def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False, justload=False):
     reflib = os.path.join(get_user_data_dir(), 'reflib.pkl')
     if os.path.isfile(reflib):
         if overwrite:
@@ -59,9 +81,11 @@ def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False)
         else:
             print('Reference library file already exists; loading it...')
             with open(reflib, 'rb') as fp:
-                data = pickle.load(fp)
-            return data
-    print('Creating reference library file...')
+                data, maxs, plaser = pickle.load(fp)
+            return data, maxs, plaser
+    if justload: return None, None, None
+    download_rruff(overwrite=False)
+    print('Creating reference library file with max_similar=%d and preferred_laser=%g' % (max_similar, preferred_laser))
     refdirs_path = get_reference_library_dir()
     refdirs = [ ['excellent_unoriented', 3],
                 ['fair_unoriented', 2],
@@ -92,8 +116,8 @@ def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False)
     print('Loaded %s spectra for %d different minerals!' % (loaded, len(alldata.keys())))
     print('Writing reference library to %s...' % (reflib))
     with open(reflib, 'wb') as fp:
-        pickle.dump(data, fp)
-    return data
+        pickle.dump([data, max_similar, preferred_laser], fp)
+    return data, max_similar, preferred_laser
 
 
 def resample(x, y, xmin=250, xmax=1400, resolution=1.0):

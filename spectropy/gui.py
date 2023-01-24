@@ -17,7 +17,6 @@ matplotlib.rcParams['savefig.dpi']=600
 
 import spectropy as spp
 
-
 class ScrollableFrame(tk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -52,7 +51,9 @@ class Spectropy(tk.Tk):
 
         self.spectra = dict()
         self.order_status = None
-        self.rruff_lib = None
+        self.matchlib = None
+        self.matchlib_maxsimilar = None
+        self.matchlib_laser = None
 
         container = tk.Frame(self)
         container.pack(side=tk.LEFT, fill="both", expand=True)
@@ -75,6 +76,7 @@ class Spectropy(tk.Tk):
         tk.Button(top_bar, text='Update graph', command=self.update).grid(row=0, column=1)
         tk.Button(top_bar, text='Save config', command=self.save).grid(row=0, column=2)
         tk.Button(top_bar, text='Load config', command=self.load).grid(row=0, column=3)
+        tk.Button(top_bar, text='Reference Library', command=self.reference_library).grid(row=0, column=4)
 
     def AddSpectrum(self, fname, label=None, color='black', xmin=200.0, xmax=3000.0, vshift=0.0, pfilter=5, alsl=3, alsp=3, alsm=0):
         sp = Spectrum(self.left, self, fname, label, color, xmin, xmax, vshift, pfilter, alsl, alsp, alsm)
@@ -115,6 +117,9 @@ class Spectropy(tk.Tk):
             self.left.update()
             self.order_status = order_status
         self.graph.update()
+
+    def reference_library(self, event=None):
+        LoadRefLibWindow(self, self)
 
 
 class LeftPanel(tk.Frame):
@@ -171,7 +176,7 @@ class Spectrum(tk.LabelFrame):
         self.fname = fname
         self.isvalid = False
         if fname.startswith('rruff:'):
-            self.x, self.y = self.controller.rruff_lib[fname[6:]]
+            self.x, self.y = self.controller.matchlib[fname[6:]]
             self.peaks = None
         elif not os.path.isfile(fname):
             tk.messagebox.showerror('File not found!', 'Sorry, but I could not find this file :(')
@@ -308,17 +313,17 @@ class Spectrum(tk.LabelFrame):
         self.controller.update()
 
     def match_rruff(self):
-        if not self.controller.rruff_lib:
+        if not self.controller.matchlib:
             print('Loading rruff database...')
             try:
-                self.controller.rruff_lib = spp.load_reference_database()
+                self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = spp.load_reference_database()
             except:
                 print('Loading failed!')
                 error_message = traceback.format_exc()
                 print(error_message)
                 return
         nx, ny = self.get_clean_raman()
-        matches = spp.score_all(nx, ny, self.controller.rruff_lib)
+        matches = spp.score_all(nx, ny, self.controller.matchlib)
         mw = MatchWindow(controller=self.controller, matches=matches)
 
     def toJson(self):
@@ -356,6 +361,65 @@ class GraphFrame(tk.Frame):
         if len(self.controller.spectra.values())>0:
             self.ax.legend()
         self.canvas.draw()
+
+
+class LoadRefLibWindow(tk.Toplevel):
+
+    def __init__(self, master=None, controller=None):
+        super().__init__(master=master)
+        self.title('Load Reference Library')
+        self.controller = controller
+        container = tk.Frame(self)
+        container.pack(side=tk.LEFT, fill="both", expand=True, padx=10, pady=10)
+        container.grid_rowconfigure(0, weight=0)
+        container.grid_rowconfigure(1, weight=1)
+        container.grid_columnconfigure(0, weight=0)
+        container.grid_columnconfigure(1, weight=1)
+        self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = spp.load_reference_database(justload=True)
+        font_family = tk.font.nametofont('TkDefaultFont').config()['family']
+        font_size = tk.font.nametofont('TkDefaultFont').config()['size']
+        pad = 3
+        row = 0
+        tk.Label(container, text='RRUFF Reference Library', font=(font_family, font_size, 'bold')).grid(row=row, column=0, columnspan=2, padx=pad, pady=pad)
+        row += 1
+        tk.Label(container, text='Last download: '+spp.get_rruff_date()).grid(row=row, column=0, padx=pad, pady=pad)
+        tk.Button(container, text='Get new version', command=self.download_rruff).grid(row=row, column=1, padx=pad, pady=pad)
+        row += 1
+        tk.Label(container, text='Matching Library', font=(font_family, font_size, 'bold')).grid(row=row, column=0, columnspan=2, padx=pad, pady=pad)
+        row += 1
+        if self.controller.matchlib:
+            txt = 'Library available with max_similar=%d and preferred_laser=%g' % \
+                    (self.controller.matchlib_maxsimilar, self.controller.matchlib_laser)
+        else:
+            txt = 'No library currently available. Generate one below!'
+        tk.Label(container, text=txt).grid(row=row, column=0, columnspan=2, padx=pad, pady=pad)
+        row += 1
+        tk.Label(container, text='Max similar spectra:').grid(row=row, column=0, padx=pad, pady=pad)
+        self.max_similar_var = tk.StringVar(value=2)
+        tk.Entry(container, textvariable=self.max_similar_var, width=11).grid(row=row, column=1, padx=pad, pady=pad)
+        row += 1
+        tk.Label(container, text='Preferred laser [nm]:').grid(row=row, column=0, padx=pad, pady=pad)
+        self.preferred_laser_var = tk.StringVar(value=780)
+        tk.Entry(container, textvariable=self.preferred_laser_var, width=11).grid(row=row, column=1, padx=pad, pady=pad)
+        row += 1
+        tk.Button(container, text='Generate new matching library', command=self.generate_match_lib).grid(row=row, column=0, padx=pad, pady=pad)
+        tk.Button(container, text='Close', command=lambda: self.destroy()).grid(row=row, column=1, padx=pad, pady=pad)
+        row += 1
+
+    def download_rruff(self, event=None):
+        spp.download_rruff(overwrite=True)
+        self.controller.matchlib = None
+        LoadRefLibWindow(self.controller, self.controller)
+        self.destroy()
+
+    def generate_match_lib(self, event=None):
+        max_similar = int(toFloat(self.max_similar_var.get(), 2.0))
+        preferred_laser = toFloat(self.preferred_laser_var.get(), 780.0)
+        self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = \
+                spp.load_reference_database(max_similar=max_similar, preferred_laser=preferred_laser, overwrite=True)
+        LoadRefLibWindow(self.controller, self.controller)
+        self.destroy()
+
 
 def run_spectropy_gui():
     app = Spectropy()
