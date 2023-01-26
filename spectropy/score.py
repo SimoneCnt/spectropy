@@ -71,6 +71,24 @@ def get_rruff_date():
     else:
         return "None downloaded yet!"
 
+def read_reference_library():
+    download_rruff(overwrite=False)
+    refdirs_path = get_reference_library_dir()
+    refdirs = [ ['excellent_unoriented', 3],
+                ['fair_unoriented', 2],
+                ['poor_unoriented', 1],
+                ['unrated_unoriented', 0]
+            ]
+    alldata = dict()
+    for refdir, quality in refdirs:
+        for f in os.listdir(os.path.join(refdirs_path, refdir)):
+            mineral, rruffid, _, laser, _, _, _, _ = os.path.basename(f).split('__')
+            if mineral not in alldata.keys():
+                alldata[mineral] = list()
+            laser = float(laser.split('_')[0]) if len(laser)>0 else 0.0
+            fullpath = os.path.join(refdirs_path, refdir, f)
+            alldata[mineral].append([fullpath, rruffid, laser, quality])
+    return alldata
 
 def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False, justload=False):
     reflib = os.path.join(get_user_data_dir(), 'reflib.pkl')
@@ -84,31 +102,17 @@ def load_reference_database(max_similar=2, preferred_laser=780, overwrite=False,
                 data, maxs, plaser = pickle.load(fp)
             return data, maxs, plaser
     if justload: return None, None, None
-    download_rruff(overwrite=False)
     print('Creating reference library file with max_similar=%d and preferred_laser=%g' % (max_similar, preferred_laser))
-    refdirs_path = get_reference_library_dir()
-    refdirs = [ ['excellent_unoriented', 3],
-                ['fair_unoriented', 2],
-                ['poor_unoriented', 1], 
-                ['unrated_unoriented', 0]
-            ]
-    alldata = dict()
-    for refdir, quality in refdirs:
-        for f in os.listdir(os.path.join(refdirs_path, refdir)):
-            mineral, rruffid, _, laser, _, _, _, _ = os.path.basename(f).split('__')
-            if mineral not in alldata.keys():
-                alldata[mineral] = list() 
-            laser = float(laser.split('_')[0]) if len(laser)>0 else 0.0
-            alldata[mineral].append([f, rruffid, laser, quality, refdir])
+    alldata = read_reference_library()
     loaded = 0
     data = dict()
     for mineral, mindata in alldata.items():
         sdata = sorted(mindata, key=lambda d: (d[3], -abs(preferred_laser-d[2]), d[1]), reverse=True)
         pdata = sdata[0:max_similar]
-        for f, rruffid, laser, quality, refdir in pdata:
+        for f, rruffid, laser, quality in pdata:
             name = '%s__%g__%s' % (mineral, laser, rruffid)
             if name in data.keys(): continue
-            x, y, _ = read_raman(os.path.join(refdirs_path, refdir, f))
+            x, y, _ = read_raman(f)
             data[name] = np.array([x,y])
             loaded += 1
             if loaded%100==0:
