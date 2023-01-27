@@ -124,6 +124,14 @@ class Spectropy(tk.Tk):
         LoadRefLibWindow(self, self)
 
     def reference_library_view(self, event=None):
+        if not self.matchlib:
+            print('Loading rruff database...')
+            self.matchlib, self.matchlib_maxsimilar, self.matchlib_laser = spp.load_reference_database(justload=True)
+            if not self.matchlib:
+                LoadRefLibWindow(self, self)
+                if not self.matchlib:
+                    print('You need to load a reference library!')
+                    return
         ReferenceLibraryWindow(self, self)
 
 
