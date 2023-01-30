@@ -15,6 +15,7 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 matplotlib.rcParams['savefig.dpi']=600
+import threading
 
 import spectropy as spp
 
@@ -248,7 +249,8 @@ class Spectrum(tk.LabelFrame):
         rescale_intercept_entry.bind("<Return>", controller.update)
         self.rescale_apply_var = tk.IntVar(value=0)
         tk.Checkbutton(self, text='Apply', variable=self.rescale_apply_var, command=controller.update).grid(row=5, column=3)
-        tk.Button(self, text='Match', command=self.match_rruff).grid(row=6, column=1)
+        tk.Button(self, text='Match', command=lambda: ProgressBar(self, command=self.match_rruff,
+                    message='Matching with the reference spectra database...')).grid(row=6, column=1)
         tk.Button(self, text='Save', command=self.save_raman).grid(row=6, column=2)
         tk.Button(self, text='Remove', command=self.remove).grid(row=6, column=3)
         self.isvalid = True
@@ -403,7 +405,8 @@ class LoadRefLibWindow(tk.Toplevel):
         row += 1
         self.rruff_download_text_label = tk.Label(container, text='Last download: '+spp.get_rruff_date())
         self.rruff_download_text_label.grid(row=row, column=0, padx=pad, pady=pad)
-        tk.Button(container, text='Get new version', command=self.download_rruff).grid(row=row, column=1, padx=pad, pady=pad)
+        tk.Button(container, text='Get new version', command=lambda: ProgressBar(self, command=self.download_rruff,
+                    message='Downloading the RRUFF spectra database...')).grid(row=row, column=1, padx=pad, pady=pad)
         row += 1
         tk.Label(container, text='Matching Library', font=(font_family, font_size, 'bold')).grid(row=row, column=0, columnspan=2, padx=pad, pady=pad)
         row += 1
@@ -418,7 +421,8 @@ class LoadRefLibWindow(tk.Toplevel):
         self.preferred_laser_var = tk.StringVar(value=780)
         tk.Entry(container, textvariable=self.preferred_laser_var, width=11).grid(row=row, column=1, padx=pad, pady=pad)
         row += 1
-        tk.Button(container, text='Generate new matching library', command=self.generate_match_lib).grid(row=row, column=0, padx=pad, pady=pad)
+        tk.Button(container, text='Generate new matching library', command=lambda: ProgressBar(self, command=self.generate_match_lib,
+                    message='Generating a new matching library...')).grid(row=row, column=0, padx=pad, pady=pad)
         tk.Button(container, text='Close', command=lambda: self.destroy()).grid(row=row, column=1, padx=pad, pady=pad)
         row += 1
         self.set_labels_text()
@@ -485,6 +489,29 @@ class ReferenceLibraryWindow(tk.Toplevel):
         if os.path.isfile(focus):
             mineral, rruffid, _, laser, _, _, _, _ = os.path.basename(focus).split('__')
             self.controller.AddSpectrum(focus, label='%s %s (%snm)' % (mineral, rruffid, laser))
+
+
+class ProgressBar(tk.Toplevel):
+    def __init__(self, master=None, controller=None, command=None, message='Please wait...'):
+        super().__init__(master=None)
+        self.title('Please wait...')
+        self.controller = None
+        tk.Label(self, text=message).pack(padx=10, pady=30)
+        pb = ttk.Progressbar(self, orient='horizontal', length=200, mode='indeterminate')
+        pb.pack(padx=10, pady=30)
+        pb.start()
+        tk.Label(self, text='').pack(padx=10, pady=10)
+        self.t = threading.Thread(target=command)
+        self.t.start()
+        self.monitor()
+        self.transient(master)
+        self.grab_set()
+        master.wait_window(self)
+    def monitor(self):
+        if self.t.is_alive():
+            self.after(100, lambda: self.monitor())
+        else:
+            self.destroy()
 
 
 def run_spectropy_gui():
