@@ -15,12 +15,14 @@ import shutil
 from .read_raman import read_raman
 
 def get_user_data_dir():
-    if platform.platform() in ['Linux', 'Darwin']:
+    print('Detected OS', platform.system())
+    if platform.system() in ['Linux', 'Darwin']:
         d = os.path.join(os.environ['HOME'], '.spectropy')
-    elif platform.platform() in ['Windows']:
+    elif platform.system() in ['Windows']:
         d = os.path.join(os.environ['APPDATA'], 'spectropy')
     else:
         d = os.path.join(os.environ['HOME'], '.spectropy')
+    print(d)
     os.makedirs(d, exist_ok=True)
     return d
 
