@@ -75,6 +75,15 @@ And you should get the latest version.
 First Use
 ---------
 
+To start Spectropy, open a terminal and type:
+
+    python3 -m spectropy
+
+In MacOS, you can also use the [App wrapper](https://github.com/SimoneCnt/spectropy/raw/main/make_macos_app/Spectropy.dmg).
+
+![Main Spectropy Window](figures/spectropy-main.png)  
+*Figure: Main Spectropy window at first use.*
+
 Upon opening Spectropy for the first time, you probably want to load a Raman
 spectra you measured or received. For this, just click on the "Open New
 Spectrum" button and navigate to the file you want to open. Spectropy currently
@@ -100,7 +109,10 @@ Once loaded you can change a few settings:
  - Save: save a text file with the new spectra; useful when removing the
    baseline and calibrating it.
  - Remove: delete the current spectra.
- 
+
+![Spectropy Window with one spectrum opened](figures/spectropy-spectrum.png)  
+*Figure: Spectropy window after loading a first spectrum.*
+
 You can load multiple spectra at the same time, for comparisons. If you are
 loading a lot of spectra you can save the current setup with the "Save config"
 button. The "Load config" will reopen it as it was left. The "Update graph"
@@ -124,6 +136,9 @@ the text "Last downloded:" with the current date. The RRUFF project regularly
 update their database, so you may want to download a new fresh copy from time
 to time (no idea how often, maybe every few months?).
 
+![RefLib Setup](figures/spectropy-reflib-setup.png)  
+*Figure: Setup of the Reference Library.*
+
 With a copy of the RRUFF database you can now create a matching library to be
 used to match your spectra with. You can select how many different spectra of
 the same mineral you want (a couple should be enough, increase if you want),
@@ -142,6 +157,8 @@ the spectra as listed by RRUFF: 3 is high quality, 0 is low quality. This
 library view will show all spectra available, not only the ones selected in the
 generation of the matching library.
 
+![RefLib View](figures/spectropy-reflib-view.png)  
+*Figure: View of the Reference Library once loaded.*
 
 Matching a spectra
 ------------------
