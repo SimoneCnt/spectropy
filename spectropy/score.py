@@ -37,8 +37,10 @@ def download_rruff(overwrite=False):
         if os.path.isfile(local_fname):
             if overwrite:
                 print('RRUFF archive %s already exists. Removing it.' % (fname))
-                os.remove(local_fname)
-                shutil.rmtree(extract_dir)
+                if os.path.isfile(local_fname):
+                    os.remove(local_fname)
+                if os.path.isdir(extract_dir):
+                    shutil.rmtree(extract_dir)
                 something_changed = True
             else:
                 print('RRUFF archive %s already exists. Skipping it.' % (fname))
