@@ -9,6 +9,7 @@ import traceback
 import yaml
 import numpy as np
 import tkinter as tk
+import tkinter.font as tkfont
 import tkinter.ttk as ttk
 import matplotlib
 matplotlib.use("TkAgg")
@@ -397,8 +398,8 @@ class LoadRefLibWindow(tk.Toplevel):
         container.grid_columnconfigure(0, weight=0)
         container.grid_columnconfigure(1, weight=1)
         self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = spp.load_reference_database(justload=True)
-        font_family = tk.font.nametofont('TkDefaultFont').config()['family']
-        font_size = tk.font.nametofont('TkDefaultFont').config()['size']
+        font_family = tkfont.nametofont('TkDefaultFont').config()['family']
+        font_size = tkfont.nametofont('TkDefaultFont').config()['size']
         pad = 3
         row = 0
         tk.Label(container, text='RRUFF Reference Library', font=(font_family, font_size, 'bold')).grid(row=row, column=0, columnspan=2, padx=pad, pady=pad)
