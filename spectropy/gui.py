@@ -236,7 +236,7 @@ class Spectrum(tk.LabelFrame):
             e.bind("<Return>", controller.update)
         tk.Radiobutton(self, text='Not compute', variable=self.alsm_var, value=0, command=controller.update).grid(row=4, column=1)
         tk.Radiobutton(self, text='Compute', variable=self.alsm_var, value=1, command=controller.update).grid(row=4, column=2)
-        tk.Radiobutton(self, text='Remove', variable=self.alsm_var, value=2, command=controller.update).grid(row=4, column=3)
+        tk.Radiobutton(self, text='Subtract', variable=self.alsm_var, value=2, command=controller.update).grid(row=4, column=3)
         tk.Label(self, text='Calibrate m,q').grid(row=5, column=0)
         self.rescale_slope_var = tk.StringVar(value=1.0093)
         rescale_slope_entry = tk.Entry(self, textvariable=self.rescale_slope_var, width=5)
