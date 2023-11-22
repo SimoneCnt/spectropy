@@ -41,12 +41,12 @@ def read_txt(fp):
     return np.array(spectrumx), np.array(spectrumy), (np.array(peaksx), np.array(peaksy))
 
 def read_lrd11(fp):
-    fp = open(fname, 'r', encoding=encoding)
     readpeaks = False
     readspectrum = False
     numdata = 0
     spectrum = list()
-    peaks = list()
+    peaksx = list()
+    peaksy = list()
     for line in fp:
         splt = line.split()
         if len(splt)==0: continue
@@ -66,7 +66,8 @@ def read_lrd11(fp):
                 readpeaks = False
                 continue
         if readpeaks:
-            peaks.append(float(splt[0]))
+            peaksx.append(float(splt[0]))
+            peaksy.append(float(splt[2]))
             continue
         if key=='spectrum':
             if splt[1]=='begin':
@@ -82,7 +83,7 @@ def read_lrd11(fp):
             x, y = float(splt[0]), float(splt[1])
             spectrum.append([x,y])
     spectrum = np.array(spectrum).transpose()
-    return spectrum[0], spectrum[1], (np.array(peaks), np.zeros(len(peaks)))
+    return spectrum[0], spectrum[1], (np.array(peaksx), np.array(peaksy))
 
 
 def read_rruff(fp, encoding=None):
