@@ -52,11 +52,13 @@ class Spectropy(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
         tk.Tk.wm_title(self, "Spectropy %s" % (spp.version))
 
+        self.mode_is_raman = True
         self.spectra = dict()
         self.order_status = None
         self.matchlib = None
         self.matchlib_maxsimilar = None
         self.matchlib_laser = None
+        self.matchlib_infrared = None
 
         container = tk.Frame(self)
         container.pack(side=tk.LEFT, fill="both", expand=True)
@@ -75,12 +77,22 @@ class Spectropy(tk.Tk):
         self.scrollframe.grid(row=1, column=0, sticky="nsew")
         self.left.pack()
 
-        tk.Button(top_bar, text='Open new spectrum', command=self.left.LoadNewGraph).grid(row=0, column=0)
-        tk.Button(top_bar, text='Update graph', command=self.update).grid(row=0, column=1)
-        tk.Button(top_bar, text='Save config', command=self.save).grid(row=0, column=2)
-        tk.Button(top_bar, text='Load config', command=self.load).grid(row=0, column=3)
-        tk.Button(top_bar, text='RefLib Setup', command=self.reference_library_setup).grid(row=0, column=4)
-        tk.Button(top_bar, text='RefLib View', command=self.reference_library_view).grid(row=0, column=5)
+        self.mode_is_raman_button = tk.Button(top_bar, text='Raman', command=self.ChangeMode)
+        self.mode_is_raman_button.grid(row=0, column=0)
+        tk.Button(top_bar, text='Open new spectrum', command=self.left.LoadNewGraph).grid(row=0, column=1)
+        tk.Button(top_bar, text='Update graph', command=self.update).grid(row=0, column=2)
+        tk.Button(top_bar, text='Save config', command=self.save).grid(row=0, column=3)
+        tk.Button(top_bar, text='Load config', command=self.load).grid(row=0, column=4)
+        tk.Button(top_bar, text='RefLib Setup', command=self.reference_library_setup).grid(row=0, column=5)
+        tk.Button(top_bar, text='RefLib Raman View', command=self.reference_raman_library_view).grid(row=0, column=6)
+        tk.Button(top_bar, text='RefLib IR View', command=self.reference_infrared_library_view).grid(row=0, column=7)
+
+    def ChangeMode(self):
+        self.mode_is_raman = not self.mode_is_raman
+        if self.mode_is_raman:
+            self.mode_is_raman_button.configure(text="Raman")
+        else:
+            self.mode_is_raman_button.configure(text="Infrared")
 
     def AddSpectrum(self, fname, label=None, color='black', xmin=200.0, xmax=3000.0, vshift=0.0, pfilter=5, alsl=3, alsp=3, alsm=0):
         sp = Spectrum(self.left, self, fname, label, color, xmin, xmax, vshift, pfilter, alsl, alsp, alsm)
@@ -125,16 +137,28 @@ class Spectropy(tk.Tk):
     def reference_library_setup(self, event=None):
         LoadRefLibWindow(self, self)
 
-    def reference_library_view(self, event=None):
+    def reference_raman_library_view(self, event=None):
         if not self.matchlib:
-            print('Loading rruff database...')
-            self.matchlib, self.matchlib_maxsimilar, self.matchlib_laser = spp.load_reference_database(justload=True)
+            print('Loading rruff Raman database...')
+            self.matchlib, self.matchlib_maxsimilar, self.matchlib_laser = spp.load_raman_reference_database(justload=True)
             if not self.matchlib:
                 LoadRefLibWindow(self, self)
                 if not self.matchlib:
                     print('You need to load a reference library!')
                     return
-        ReferenceLibraryWindow(self, self)
+        ReferenceRamanLibraryWindow(self, self)
+
+    def reference_infrared_library_view(self, event=None):
+        if not self.matchlib_infrared:
+            print('Loading rruff database...')
+            self.matchlib_infrared = spp.load_infrared_reference_database(justload=True)
+            if not self.matchlib_infrared:
+                LoadRefLibWindow(self, self)
+                if not self.matchlib:
+                    print('You need to load a reference library!')
+                    return
+        ReferenceInfraredLibraryWindow(self, self)
+
 
 
 class LeftPanel(tk.Frame):
@@ -191,12 +215,17 @@ class Spectrum(tk.LabelFrame):
         self.fname = fname
         self.isvalid = False
         if fname.startswith('rruff:'):
-            self.x, self.y = self.controller.matchlib[fname[6:]]
+            if self.controller.mode_is_raman:
+                self.x, self.y = self.controller.matchlib[fname[6:]]
+            else:
+                self.x, self.y = self.controller.matchlib_infrared[fname[6:]]
+            print('Opening library file', fname[6:])
             self.peaks = None
         elif not os.path.isfile(fname):
             tk.messagebox.showerror('File not found!', 'Sorry, but I could not find this file :(')
             return
         else:
+            print('Opening file', fname)
             self.x, self.y, self.peaks = spp.read_raman(fname)
         if not np.all(self.x):
             tk.messagebox.showerror('Error parsing file!', 'Sorry, but I could not understand this file :(')
@@ -332,10 +361,11 @@ class Spectrum(tk.LabelFrame):
         if not self.controller.matchlib:
             print('Loading rruff database...')
             try:
-                self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = spp.load_reference_database(justload=True)
-                if not self.controller.matchlib:
+                self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = spp.load_raman_reference_database(justload=True)
+                self.controller.matchlib_infrared = spp.load_infrared_reference_database(justload=True)
+                if not self.controller.matchlib or not self.controller.matchlib_infrared:
                     LoadRefLibWindow(self.controller, self.controller)
-                    if not self.controller.matchlib:
+                    if not self.controller.matchlib or not self.controller.matchlib_infrared:
                         print('You need to load a reference library to run the matching!')
                         return
             except:
@@ -345,7 +375,10 @@ class Spectrum(tk.LabelFrame):
                 return
         print('Running matching algorithms...')
         nx, ny = self.get_clean_raman()
-        matches = spp.score_all(nx, ny, self.controller.matchlib)
+        if self.controller.mode_is_raman:
+            matches = spp.score_all(nx, ny, self.controller.matchlib)
+        else:
+            matches = spp.score_all(nx, ny, self.controller.matchlib_infrared)
         mw = MatchWindow(controller=self.controller, matches=matches)
 
     def toJson(self):
@@ -397,7 +430,8 @@ class LoadRefLibWindow(tk.Toplevel):
         container.grid_rowconfigure(1, weight=1)
         container.grid_columnconfigure(0, weight=0)
         container.grid_columnconfigure(1, weight=1)
-        self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = spp.load_reference_database(justload=True)
+        self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = spp.load_raman_reference_database(justload=True)
+        self.controller.matchlib_infrared = spp.load_infrared_reference_database(justload=True)
         font_family = tkfont.nametofont('TkDefaultFont').config()['family']
         font_size = tkfont.nametofont('TkDefaultFont').config()['size']
         pad = 3
@@ -449,16 +483,17 @@ class LoadRefLibWindow(tk.Toplevel):
         max_similar = int(toFloat(self.max_similar_var.get(), 2.0))
         preferred_laser = toFloat(self.preferred_laser_var.get(), 780.0)
         self.controller.matchlib, self.controller.matchlib_maxsimilar, self.controller.matchlib_laser = \
-                spp.load_reference_database(max_similar=max_similar, preferred_laser=preferred_laser, overwrite=True)
+                spp.load_raman_reference_database(max_similar=max_similar, preferred_laser=preferred_laser, overwrite=True)
+        self.controller.matchlib_infrared = spp.load_infrared_reference_database(overwrite=True)
         self.set_labels_text()
 
 
 
-class ReferenceLibraryWindow(tk.Toplevel):
+class ReferenceRamanLibraryWindow(tk.Toplevel):
 
     def __init__(self, master=None, controller=None):
         super().__init__(master=master)
-        self.title('Reference Library')
+        self.title('Reference Raman Library')
         self.controller = controller
         container = tk.Frame(self)
         container.pack(side=tk.LEFT, fill="both", expand=True, padx=10, pady=10)
@@ -473,7 +508,7 @@ class ReferenceLibraryWindow(tk.Toplevel):
         #self.tree.heading('#0', anchor='w')
         self.tree.bind('<<TreeviewSelect>>', self.on_tree_select)
 
-        alldata = spp.read_reference_library()
+        alldata = spp.read_raman_reference_library()
         root_node = self.tree.insert('', 'end', text='Minerals', iid='root', open=True)
         for mineral in sorted(alldata.keys()):
             mineral_node = self.tree.insert(root_node, 'end', text=mineral, iid=mineral, open=False)
@@ -490,6 +525,41 @@ class ReferenceLibraryWindow(tk.Toplevel):
         if os.path.isfile(focus):
             mineral, rruffid, _, laser, _, _, _, _ = os.path.basename(focus).split('__')
             self.controller.AddSpectrum(focus, label='%s %s (%snm)' % (mineral, rruffid, laser))
+
+
+class ReferenceInfraredLibraryWindow(tk.Toplevel):
+
+    def __init__(self, master=None, controller=None):
+        super().__init__(master=master)
+        self.title('Reference Infrared Library')
+        self.controller = controller
+        container = tk.Frame(self)
+        container.pack(side=tk.LEFT, fill="both", expand=True, padx=10, pady=10)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_columnconfigure(1, weight=0)
+        self.tree = ttk.Treeview(container)
+        ysb = ttk.Scrollbar(container, orient='vertical', command=self.tree.yview)
+        self.tree.configure(yscroll=ysb.set)
+        self.tree.grid(row=0, column=0, sticky=tk.NSEW)
+        ysb.grid(row=0, column=1, sticky='ns')
+        #self.tree.heading('#0', anchor='w')
+        self.tree.bind('<<TreeviewSelect>>', self.on_tree_select)
+
+        alldata = spp.read_infrared_reference_library()
+        root_node = self.tree.insert('', 'end', text='Minerals', iid='root', open=True)
+        for mineral in sorted(alldata.keys()):
+            mineral_node = self.tree.insert(root_node, 'end', text=mineral, iid=mineral, open=False)
+            for full_path, rruffid in alldata[mineral]:
+                name_fmt = rruffid
+                tmp_node = self.tree.insert(mineral_node, 'end', text=name_fmt, iid=full_path, open=False)
+
+    def on_tree_select(self, event=None):
+        focus = self.tree.focus()
+        if os.path.isfile(focus):
+            mineral, rruffid, _, _, _ = os.path.basename(focus).split('__')
+            self.controller.AddSpectrum(focus, label='%s %s' % (mineral, rruffid))
+
 
 
 class ProgressBar(tk.Toplevel):
