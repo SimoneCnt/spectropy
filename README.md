@@ -2,50 +2,61 @@
 Spectropy
 =========
 
-Spectropy is a simple tool to view, compare and match Raman spectra of
+Spectropy is a simple tool to view, compare and match Raman and infrared spectra of
 minerals.
 
 Install
 -------
 
-### Install Python & tkinter
+### MacOS
+
+On MacOS, Spectropy is available via Homebrew. Please install it as [described on their
+website](https://brew.sh/). Usually, you should just need to open the Terminal
+App and paste the following command:
+
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+Once done, install Spectropy using the following commands:
+
+    brew tap simonecnt/3dz2
+    brew install spectropy
+
+Spectropy will be available in you Application folder.
+
+The first time you will try to open it, you will get a warning, like this:
+
+![](figures/spectropy-malware.png)
+
+Click "Done", then open the MacOS System Settings from the Apple menu on the top right, go to the 
+Privacy & Security tab, and when you read "Spectropy.app was blocked to protect your Mac." click "Open Anyway".
+After that, it Spectropy should open properly.
+
+![](figures/spectropy-system-settings.png)
+
+To upgrade Spectropy to a new version, open a Terminal and type:
+
+    brew upgrade
+
+And to uninstall Spectropy:
+
+    brew uninstall spectropy
+
+
+
+### Linux
 
 Spectropy is a python application using tkinter for the graphical user
-interface. You need first to install these on your computer first.  The details
-depend on your operating system; see below. To verify that tkinter is available
-run this command in the Terminal:
+interface. You need first to install these via your Linux distribution 
+package manager (apt, pacman, ...). The details depend on your operating
+system. To verify that tkinter is available run this command in the Terminal:
 
     python3 -m tkinter
 
 You should see a little window opening with the tkinter version. If instead you
 get any error, it means something went wrong somewhere...
 
-#### MacOS
-
-On MacOS, first you need Homebrew. Please install it as [described on their
-website](https://brew.sh/). Usually, you should just need to open the Terminal
-App and paste the following:
-
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-Once done, install python with tkinter using this command:
-
-    brew install python-tk
-
-#### Linux
-
-The specifics on how to install python and tkinter depend on your Linux
-distribution.  You should be able to do that from your package manager (apt,
-pacman, ...)
-
-#### Windows
-
-No idea, I've never tested this. 
-
-### Install Spectropy
-
-At this point you should have python and tkinter installed. Python also comes
-with an utility called pip. To install Spectropy just run in the Terminal:
+At this point you should have python and tkinter installed. you can now install
+Spectropy via pip:
 
     pip3 install --user --upgrade https://github.com/SimoneCnt/spectropy/archive/refs/heads/main.zip
 
@@ -54,32 +65,15 @@ run Spectropy from the Terminal via:
 
     python3 -m spectropy
 
-No error should be printed and the main Spectropy window should open.  This
-should be work perfectly fine in MacOS and Linux. I haven't tested it on
-Windows, but it should work there as well.
 
-As a final touch on MacOS, if you prefer to use a graphical application, you can 
-[download the Spectropy dmg file](https://github.com/SimoneCnt/spectropy/raw/main/make_macos_app/Spectropy.dmg).
-Still, this is just a wrapper, and you need a working version of Spectropy to use it.
-No wrapper is available for Linux or Windows.
 
-### Update Spectropy to the latest version
+### Windows
 
-To update Spectropy, you can just run again the command:
-
-    pip3 install --user --upgrade https://github.com/SimoneCnt/spectropy/archive/refs/heads/main.zip
-
-And you should get the latest version.
+No idea, I've never tested this. 
 
 
 First Use
 ---------
-
-To start Spectropy, open a terminal and type:
-
-    python3 -m spectropy
-
-In MacOS, you can also use the [App wrapper](https://github.com/SimoneCnt/spectropy/raw/main/make_macos_app/Spectropy.dmg).
 
 ![Main Spectropy Window](figures/spectropy-main.png)  
 *Figure: Main Spectropy window at first use.*
